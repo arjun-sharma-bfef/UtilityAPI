@@ -421,15 +421,25 @@ missing_hour <- function(bad_data_df, row, interval_mod){
 createFixedInterval <- function(bad_data_df, interval_mod){
   topInterval <- interval_mod[1,'interval_start']
   bottomInterval <- interval_mod[nrow(interval_mod),'interval_start']
+  cat("\ntopInterval: ", topInterval)
+  cat("\nbottomInterval: ", bottomInterval)
   startDate <- as.POSIXct(bottomInterval, format ="%m/%d/%Y %H:%M")
   endDate <- as.POSIXct(topInterval, format ="%m/%d/%Y %H:%M")
-  #cat("start date: ",startDate)
-  #cat("end date: ")
+  cat("\nstart date: ",startDate)
+  cat("\nend date: ")
   interval15min <- seq(from=startDate, to=endDate, by="15 min")
-  print(interval15min)
-  fixedIntervals_df <- data.frame('interval_start' = interval15min, 'kWh' = rep(0, each=35040))
+  write.csv(interval15min, "output.csv", row.names = FALSE)
+  #print(interval15min)
+  fixedIntervals_df <- data.frame('interval_start' = interval15min, 'interval_kWh' = rep(0, each=35040))
   View(fixedIntervals_df)
+  interval_mod$interval_start <- as.POSIXct(interval_mod$interval_start, format ="%m/%d/%Y %H:%M")
+  interval_mod <- subset(interval_mod, select = -(month))
+  interval_mod <- interval_mod[!duplicated(interval_mod$interval_start), ]
+  #View(interval_mod)
+  final_df <- merge(interval_mod, fixedIntervals_df, by="interval_start", all.y = TRUE)
+  View(final_df)
 }
+
 
 utilityapiread()
 
