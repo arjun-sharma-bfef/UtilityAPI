@@ -173,6 +173,7 @@ utilityapiread <- function(){
   return(intervals_df)
   return(interval_mod)
   return(bad_data_df)
+  return(final_df)
 }
 
 find_bad_days <- function(bad_months_list, intervals_df, interval_mod){
@@ -346,6 +347,7 @@ find_bad_days <- function(bad_months_list, intervals_df, interval_mod){
   #cat('November bad days: ', Nov_bad_days)
   find_bad_hours(bad_data_df, interval_mod)
   return(bad_data_df)
+  return(final_df)
 }
 
 find_bad_hours <- function(bad_data_df, interval_mod){
@@ -380,42 +382,9 @@ find_bad_hours <- function(bad_data_df, interval_mod){
   }
   View(bad_data_df)
   View(interval_mod)
-  fix_bad_data(bad_data_df,interval_mod)
-  return(bad_data_df)
-}
-
-fix_bad_data <- function(bad_data_df,interval_mod){
-  #for (row in 1:nrow(bad_data_df)){
-  #  if (bad_data_df[row,'Present'] < 1){
-  #    missing_hour(bad_data_df, row, interval_mod)
-  #  }
-  #}
-  #View(interval_mod)
   createFixedInterval(bad_data_df,interval_mod)
-}
-
-missing_hour <- function(bad_data_df, row, interval_mod){
-  if (bad_data_df[row,'Month'] == 3){
-    year <- 2015
-  }
-  if (bad_data_df[row,'Month'] == 11){
-    year <- 2014
-  }
-  new_row1 <- c(sprintf('%d/%d/%d %d:00',bad_data_df[row,'Month'],bad_data_df[row,'Day'],year,bad_data_df[row,'Hour']),0,'March')
-  new_row2 <- c(sprintf('%d/%d/%d %d:15',bad_data_df[row,'Month'],bad_data_df[row,'Day'],year,bad_data_df[row,'Hour']),0,'March')
-  new_row3 <- c(sprintf('%d/%d/%d %d:30',bad_data_df[row,'Month'],bad_data_df[row,'Day'],year,bad_data_df[row,'Hour']),0,'March')
-  new_row4 <- c(sprintf('%d/%d/%d %d:45',bad_data_df[row,'Month'],bad_data_df[row,'Day'],year,bad_data_df[row,'Hour']),0,'March')
-  row.names(interval_mod) <- 1:nrow(interval_mod)
-  insert_index <- which(interval_mod$interval_start == sprintf('%d/%d/%d %d:00',bad_data_df[row,'Month'],bad_data_df[row,'Day'],year,bad_data_df[row,'Hour']+1))
-  cat("\ninsert_index: ",insert_index)
-
-  interval_mod <- rbind(interval_mod[1:insert_index,],new_row1,interval_mod[-(1:insert_index),])
-  interval_mod <- rbind(interval_mod[1:insert_index,],new_row2,interval_mod[-(1:insert_index),])
-  interval_mod <- rbind(interval_mod[1:insert_index,],new_row3,interval_mod[-(1:insert_index),])
-  interval_mod <- rbind(interval_mod[1:insert_index,],new_row4,interval_mod[-(1:insert_index),])
-  row.names(interval_mod) <- 1:nrow(interval_mod)
-  View(interval_mod)
-  return(interval_mod)
+  return(bad_data_df)
+  return(final_df)
 }
 
 createFixedInterval <- function(bad_data_df, interval_mod){
@@ -425,19 +394,28 @@ createFixedInterval <- function(bad_data_df, interval_mod){
   cat("\nbottomInterval: ", bottomInterval)
   startDate <- as.POSIXct(bottomInterval, format ="%m/%d/%Y %H:%M")
   endDate <- as.POSIXct(topInterval, format ="%m/%d/%Y %H:%M")
-  cat("\nstart date: ",startDate)
-  cat("\nend date: ")
-  interval15min <- seq(from=startDate, to=endDate, by="15 min")
-  write.csv(interval15min, "output.csv", row.names = FALSE)
-  #print(interval15min)
+  interval15min <- seq(from=startDate, by="15 mins", length.out = 35040)
   fixedIntervals_df <- data.frame('interval_start' = interval15min, 'interval_kWh' = rep(0, each=35040))
   View(fixedIntervals_df)
-  interval_mod$interval_start <- as.POSIXct(interval_mod$interval_start, format ="%m/%d/%Y %H:%M")
   interval_mod <- subset(interval_mod, select = -(month))
   interval_mod <- interval_mod[!duplicated(interval_mod$interval_start), ]
-  #View(interval_mod)
+  interval_mod$interval_start <- as.POSIXct(interval_mod$interval_start, format ="%m/%d/%Y %H:%M")
+  View(interval_mod)
   final_df <- merge(interval_mod, fixedIntervals_df, by="interval_start", all.y = TRUE)
+  final_df <- final_df[!duplicated(final_df$interval_start), ]
+  
+  cat("accessinf final_df: ", final_df[14792,"interval_kWh.x"])
+  
+  for (i in 1:nrow(final_df)){
+    if (is.na(final_df[i,"interval_kWh.x"])){
+      final_df[i,"interval_kWh.x"] <- mean(final_df[i+672,"interval_kWh.x"],final_df[i-672,"interval_kWh.x"])
+    }
+  }
+  
+  #final_df <- final_df[order(as.Date(final_df$interval_start, format="%m/%d/%Y %H:%M")),]
+  
   View(final_df)
+  return(final_df)
 }
 
 
